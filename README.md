@@ -1,4 +1,4 @@
-# NeuralQ Agent: Heuristically Quantum and Linear Neural Networks for Lua
+# NeuralQ Agent: Quantum-Inspired Metaheuristic Neural Networks for Lua
 
 NeuralQ Agent is a Lua library designed to facilitate the integration of artificial intelligence and neural networks into your projects. This library is particularly tailored for applications ranging from education to game development, offering both classical and quantum-inspired neural network models.
 
