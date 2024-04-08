@@ -1,4 +1,4 @@
-local NeuralQAgent = require(script.Parent.NeuralQAgent)
+local NeuralQAgent = require(script.Parent.NeuralLAgent)
 
 -- Main module logic
 local function main()
