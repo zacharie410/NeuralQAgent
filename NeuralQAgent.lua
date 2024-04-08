@@ -1,192 +1,196 @@
---.luau ModuleScript
+-- ComplexNumber.lua
+local ComplexNumber = {}
+ComplexNumber.__index = ComplexNumber
+
+function ComplexNumber.new(real, imaginary)
+	return setmetatable({real = real or 0, imaginary = imaginary or 0}, ComplexNumber)
+end
+
+function ComplexNumber:add(other)
+	if type(other) == "number" then
+		-- scalar
+		return ComplexNumber.new(self.real + other, self.imaginary + other)
+	else
+		return ComplexNumber.new(self.real + other.real, self.imaginary + other.imaginary)
+	end
+end
+
+function ComplexNumber:mul(other)
+	if type(other) == "number" then
+		-- Scalar multiplication
+		return ComplexNumber.new(self.real * other, self.imaginary * other)
+	elseif getmetatable(other) == ComplexNumber then
+		return ComplexNumber.new(
+			self.real * other.real - self.imaginary * other.imaginary,
+			self.real * other.imaginary + self.imaginary * other.real
+		)
+	else
+		error("Attempted to multiply with an incompatible type")
+	end
+end
+
+function ComplexNumber:abs()
+	return math.sqrt(self.real^2 + self.imaginary^2)
+end
+
+setmetatable(ComplexNumber, {__call = ComplexNumber.new})
 
 -- Utility Functions
-local function sigmoid(x)
-	return 1 / (1 + math.exp(-x))
-end
-
-local function dSigmoid(y)  -- Derivative of sigmoid
-	return y * (1 - y)
-end
-
-local function initializeWeights(neuronsA, neuronsB)
-	local weights = {}
-	for i = 1, neuronsA do
-		weights[i] = {}
-		for j = 1, neuronsB do
-			weights[i][j] = math.sqrt(1 / neuronsB) * (math.random() * 2 - 1)
-		end
+local function sigmoid(z)
+	-- Using the magnitude for the sigmoid function
+	local x;
+	if type(z) == "number" then
+		x = z
+	else
+		x = z:abs()
 	end
-	return weights
+	local result = 1 / (1 + math.exp(-x))
+	return result  -- Return as a complex number with imaginary part 0
 end
 
+local function dSigmoid(z)
+	-- Using the magnitude of z for the sigmoid function, then calculating the derivative
+	local y = sigmoid(z)  -- This is now a ComplexNumber
+	local derivative = y * (1 - y)
+	return derivative  -- Return as a complex number with imaginary part 0
+end
+
+-- Initialize Quantum-Inspired Weights
 local function initializeQuantumInspiredWeights(neuronsA, neuronsB)
 	local weights = {}
 	for i = 1, neuronsA do
 		weights[i] = {}
 		for j = 1, neuronsB do
-			-- Random phase to simulate superposition
 			local phase = math.random() * 2 * math.pi
-			weights[i][j] = math.sqrt(1 / neuronsB) * (math.cos(phase) + i * math.sin(phase))
+			weights[i][j] = ComplexNumber.new(math.cos(phase), math.sin(phase))
 		end
 	end
 	return weights
 end
 
+-- Initialize Biases
 local function initializeBiases(neurons)
 	local biases = {}
 	for i = 1, neurons do
-		biases[i] = math.sqrt(1 / neurons) * (math.random() * 2 - 1)
+		biases[i] = ComplexNumber.new(math.random() * 2 - 1, math.random() * 2 - 1)  -- Complex biases
 	end
 	return biases
 end
 
--- Base Neural Network Module
-local BaseNeuralNetwork = {}
-BaseNeuralNetwork.__index = BaseNeuralNetwork
+-- QuantumNeuralNetwork.lua
+local QuantumNeuralNetwork = {}
+QuantumNeuralNetwork.__index = QuantumNeuralNetwork
 
-function BaseNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons, weightInitializer, biasInitializer)
-	local self = setmetatable({}, BaseNeuralNetwork)
-	self.weightsInputHidden = weightInitializer(inputNeurons, hiddenNeurons)
-	self.weightsHiddenOutput = weightInitializer(hiddenNeurons, outputNeurons)
-	self.biasHidden = biasInitializer(hiddenNeurons)
-	self.biasOutput = biasInitializer(outputNeurons)
+function QuantumNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons)
+	local self = setmetatable({}, QuantumNeuralNetwork)
+	self.weightsInputHidden = initializeQuantumInspiredWeights(inputNeurons, hiddenNeurons)
+	self.weightsHiddenOutput = initializeQuantumInspiredWeights(hiddenNeurons, outputNeurons)
+	self.biasHidden = initializeBiases(hiddenNeurons)
+	self.biasOutput = initializeBiases(outputNeurons)
 	self.learningRate = 0.01
-	self.decay = 0.001
 	return self
 end
 
--- Shared methods like forwardPass, train, incrementalTrain, backwardPass go here
-function BaseNeuralNetwork:incrementalTrain(input, targetOutput)
-	-- Forward pass
-	local hiddenActivations = self:forwardPass(input, self.weightsInputHidden, self.biasHidden, sigmoid)
-	local predictedOutputs = self:forwardPass(hiddenActivations, self.weightsHiddenOutput, self.biasOutput, sigmoid)
-
-	-- Calculate error
-	local errors = {}
-	for i = 1, #predictedOutputs do
-		errors[i] = targetOutput[i] - predictedOutputs[i]
-	end
-
-	-- Backward pass (adjust weights and biases)
-	self:backwardPass(input, hiddenActivations, predictedOutputs, errors)
-end
-
-function BaseNeuralNetwork:backwardPass(inputs, hiddenActivations, predictedOutputs, errors)
-	-- Calculate gradient for weights between hidden and output layer
-	local dWeightsHiddenOutput = {}
-	for j = 1, #self.weightsHiddenOutput do
-		dWeightsHiddenOutput[j] = {}
-		for k = 1, #predictedOutputs do
-			dWeightsHiddenOutput[j][k] = errors[k] * dSigmoid(predictedOutputs[k]) * hiddenActivations[j]
-		end
-	end
-
-	-- Adjust weights and biases for hidden-output layer
-	for j = 1, #self.weightsHiddenOutput do
-		for k = 1, #predictedOutputs do
-			self.weightsHiddenOutput[j][k] = self.weightsHiddenOutput[j][k] + self.learningRate * dWeightsHiddenOutput[j][k]
-		end
-	end
-	for k = 1, #self.biasOutput do
-		self.biasOutput[k] = self.biasOutput[k] + self.learningRate * errors[k] * dSigmoid(predictedOutputs[k])
-	end
-
-	-- Calculate gradient for weights between input and hidden layer (backpropagate the errors)
-	local dWeightsInputHidden = {}
-	for i = 1, #self.weightsInputHidden do
-		dWeightsInputHidden[i] = {}
-		for j = 1, #hiddenActivations do
-			local errorSum = 0
-			for k = 1, #predictedOutputs do
-				errorSum = errorSum + errors[k] * dSigmoid(predictedOutputs[k]) * self.weightsHiddenOutput[j][k]
-			end
-			dWeightsInputHidden[i][j] = errorSum * dSigmoid(hiddenActivations[j]) * inputs[i]
-		end
-	end
-
-	-- Adjust weights and biases for input-hidden layer
-	for i = 1, #self.weightsInputHidden do
-		for j = 1, #hiddenActivations do
-			self.weightsInputHidden[i][j] = self.weightsInputHidden[i][j] + self.learningRate * dWeightsInputHidden[i][j]
-		end
-	end
-	for j = 1, #self.biasHidden do
-		local errorSum = 0
-		for k = 1, #predictedOutputs do
-			errorSum = errorSum + errors[k] * dSigmoid(predictedOutputs[k]) * self.weightsHiddenOutput[j][k]
-		end
-		self.biasHidden[j] = self.biasHidden[j] + self.learningRate * errorSum * dSigmoid(hiddenActivations[j])
-	end
-end
-
-function BaseNeuralNetwork:forwardPass(inputs, weights, biases, activationFunc)
+function QuantumNeuralNetwork:forwardPass(inputs, weights, biases, activationFunc)
 	local outputs = {}
 	for i = 1, #biases do
-		outputs[i] = biases[i]
+		local sum = biases[i]  -- Biases are now ComplexNumbers
 		for j = 1, #inputs do
-			outputs[i] = outputs[i] + inputs[j] * weights[j][i]
+			sum = sum:add(weights[j][i]:mul(inputs[j]))
 		end
-		outputs[i] = activationFunc(outputs[i])
+		outputs[i] = activationFunc(sum)  -- Activation function directly on ComplexNumber
 	end
 	return outputs
 end
 
-function BaseNeuralNetwork:predict(inputs)
-	local hiddenActivations = {}
-	for i = 1, #self.biasHidden do
-		hiddenActivations[i] = 0
-		for j = 1, #inputs do
-			hiddenActivations[i] = hiddenActivations[i] + inputs[j] * self.weightsInputHidden[j][i]
-		end
-		hiddenActivations[i] = sigmoid(hiddenActivations[i] + self.biasHidden[i])
-	end
-
-	local outputActivations = {}
-	for i = 1, #self.biasOutput do
-		outputActivations[i] = 0
-		for j = 1, #hiddenActivations do
-			outputActivations[i] = outputActivations[i] + hiddenActivations[j] * self.weightsHiddenOutput[j][i]
-		end
-		outputActivations[i] = sigmoid(outputActivations[i] + self.biasOutput[i])
-	end
-	return outputActivations
+function QuantumNeuralNetwork:predict(inputs)
+	local hiddenActivations = self:forwardPass(inputs, self.weightsInputHidden, self.biasHidden, sigmoid)
+	return self:forwardPass(hiddenActivations, self.weightsHiddenOutput, self.biasOutput, sigmoid)
 end
 
-function BaseNeuralNetwork:train(trainingData, epochs)
-	for epoch = 1, epochs do
-		local totalError = 0
-		for _, dataPoint in ipairs(trainingData) do
-			local inputs = dataPoint.inputs
-			local targetOutputs = dataPoint.output
+-- Quantum-inspired annealing function adapted for complex numbers
+function QuantumNeuralNetwork:quantumInspiredAnnealing(startInput, iterations, temp, coolingRate)
+	-- Quantum-inspired tweak function for complex numbers
+	local function quantumTweak(input, tweakMagnitude)
+		local tweakedInput = {}
+		for i = 1, #input do
+			-- Tweak both real and imaginary parts
+			local realTunneling = math.exp(-tweakMagnitude / temp) * (math.random() - 0.5)
+			local imaginaryTunneling = math.exp(-tweakMagnitude / temp) * (math.random() - 0.5)
+			tweakedInput[i] = input[i]:add(ComplexNumber.new(realTunneling, imaginaryTunneling))
+		end
+		return tweakedInput
+	end
 
-			-- Forward pass
-			local hiddenActivations = self:forwardPass(inputs, self.weightsInputHidden, self.biasHidden, sigmoid)
-			local predictedOutputs = self:forwardPass(hiddenActivations, self.weightsHiddenOutput, self.biasOutput, sigmoid)
+	local currentInput = startInput
+	local currentScore = self:predict(currentInput)[1]:abs()
+	local bestInput = currentInput
+	local bestScore = currentScore
 
-			-- Calculate error
-			local errors = {}
-			for i = 1, #predictedOutputs do
-				errors[i] = targetOutputs[i] - predictedOutputs[i]
-				totalError = totalError + errors[i] ^ 2
+	for i = 1, iterations do
+		local tweakMagnitude = temp / 10
+		local newInput = quantumTweak(currentInput, tweakMagnitude)
+		local newScore = self:predict(newInput)[1]:abs()
+
+		local delta = newScore - currentScore
+
+		if delta > 0 or math.random() < math.exp(-delta / temp) then
+			currentInput = newInput
+			currentScore = newScore
+
+			if newScore > bestScore then
+				bestInput = newInput
+				bestScore = newScore
 			end
-
-			-- Backward pass (adjust weights and biases)
-			self:backwardPass(inputs, hiddenActivations, predictedOutputs, errors)
 		end
 
-		-- Optional: Print average error every epoch or at certain intervals
-		print("Epoch:", epoch, "Average Error:", totalError / #trainingData)
+		temp = temp * coolingRate
 	end
+
+	return bestInput
 end
 
---Quantum Neural Network
-local QuantumNeuralNetwork = setmetatable({}, {__index = BaseNeuralNetwork})
+function QuantumNeuralNetwork:backwardPass(inputs, hiddenActivations, predictedOutputs, errors)
+	-- Gradients for weights from hidden to output
+	local dWeightsHiddenOutput = {}
+	for j = 1, #self.weightsHiddenOutput do
+		dWeightsHiddenOutput[j] = {}
+		for k = 1, #predictedOutputs do
+			dWeightsHiddenOutput[j][k] = ComplexNumber.new(errors[k] * dSigmoid(predictedOutputs[k]) * hiddenActivations[j])
+			-- Update weights with gradients
+			self.weightsHiddenOutput[j][k] = self.weightsHiddenOutput[j][k]:add(dWeightsHiddenOutput[j][k]:mul(self.learningRate))
+		end
+	end
 
-function QuantumNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons)
-	local self = BaseNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons, initializeQuantumInspiredWeights, initializeBiases)
-	setmetatable(self, {__index = QuantumNeuralNetwork})  -- Set the metatable to QuantumNeuralNetwork to access its methods
-	return self
+	-- Update biases for output layer
+	for k = 1, #self.biasOutput do
+		self.biasOutput[k] = self.biasOutput[k]:add(self.learningRate * errors[k] * dSigmoid(predictedOutputs[k]))
+	end
+
+	-- Error propagation back to the hidden layer
+	local hiddenErrors = {}
+	for j = 1, #hiddenActivations do
+		hiddenErrors[j] = 0
+		for k = 1, #predictedOutputs do
+			hiddenErrors[j] = hiddenErrors[j] + errors[k] * self.weightsHiddenOutput[j][k].real
+		end
+	end
+
+	-- Gradients for weights from input to hidden
+	local dWeightsInputHidden = {}
+	for i = 1, #self.weightsInputHidden do
+		dWeightsInputHidden[i] = {}
+		for j = 1, #hiddenActivations do
+			dWeightsInputHidden[i][j] = ComplexNumber.new( hiddenErrors[j] * dSigmoid( hiddenActivations[j]) * inputs[i].real )
+			-- Update weights with gradients
+			self.weightsInputHidden[i][j] = self.weightsInputHidden[i][j]:add(dWeightsInputHidden[i][j]:mul(self.learningRate))
+		end
+	end
+
+	-- Update biases for hidden layer
+	for j = 1, #self.biasHidden do
+		self.biasHidden[j] = self.biasHidden[j]:add( self.learningRate * hiddenErrors[j] * dSigmoid(hiddenActivations[j]) )
+	end
 end
 
 function QuantumNeuralNetwork:quantumInspiredPredict(inputs)
@@ -210,108 +214,33 @@ function QuantumNeuralNetwork:quantumInspiredPredict(inputs)
 	return actionIndex  -- Return the index of the chosen action
 end
 
-function QuantumNeuralNetwork:quantumInspiredAnnealing(startInput, iterations, temp, coolingRate)
-	-- Quantum-inspired tweak function
-	local function quantumTweak(input, tweakMagnitude)
-		local tweakedInput = {}
-		for i = 1, #input do
-			-- Introduce quantum tunneling effect metaphorically
-			local tunnelingEffect = math.exp(-tweakMagnitude / temp) * (math.random() - 0.5)
-			tweakedInput[i] = math.max(0, math.min(1, input[i] + tunnelingEffect))
-		end
-		return tweakedInput
-	end
-
-
-	local currentInput = startInput
-	local currentScore = self:predict(currentInput)[1]  -- Assuming single output for simplicity
-	local bestInput = currentInput
-	local bestScore = currentScore
-
-	for i = 1, iterations do
-		local tweakMagnitude = temp / 10  -- Adaptive tweaking based on temperature
-		local newInput = quantumTweak(currentInput, tweakMagnitude)
-		local newScore = self:predict(newInput)[1]  -- Assuming single output for simplicity
-
-		local delta = newScore - currentScore
-
-		if delta > 0 or math.random() < math.exp(-delta / temp) then
-			currentInput = newInput
-			currentScore = newScore
-
-			if newScore > bestScore then
-				bestInput = newInput
-				bestScore = newScore
+function QuantumNeuralNetwork:train(trainingData, epochs)
+	for epoch = 1, epochs do
+		local totalError = 0
+		for _, dataPoint in ipairs(trainingData) do
+			local inputs = {}  -- Convert dataPoint inputs to ComplexNumber instances
+			for i, value in ipairs(dataPoint.inputs) do
+				table.insert(inputs, ComplexNumber.new(value, 0))
 			end
-		end
 
-		temp = temp * coolingRate
-	end
+			local targetOutputs = dataPoint.output  -- Assume these are already complex or converted as needed
 
-	return bestInput
-end
+			-- Forward pass
+			local hiddenActivations = self:forwardPass(inputs, self.weightsInputHidden, self.biasHidden, sigmoid)
+			local predictedOutputs = self:forwardPass(hiddenActivations, self.weightsHiddenOutput, self.biasOutput, sigmoid)
 
--- Linear Neural Network Module
-local LinearNeuralNetwork = setmetatable({}, {__index = BaseNeuralNetwork})
-
-function LinearNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons)
-	local self = BaseNeuralNetwork.new(inputNeurons, hiddenNeurons, outputNeurons, initializeWeights, initializeBiases)
-	setmetatable(self, {__index = LinearNeuralNetwork})  -- Set the metatable to NeuralNetwork to access its methods
-	return self
-end
-
-function LinearNeuralNetwork:simulatedAnnealing(startInput, iterations, temp, coolingRate)
-	local function tweakInput(input, tweakMagnitude)
-		local tweakedInput = {}
-		for i = 1, #input do
-			-- Tweak each input within the range [0, 1] as an example
-			tweakedInput[i] = math.max(0, math.min(1, input[i] + (math.random() - 0.5) * tweakMagnitude))
-		end
-		return tweakedInput
-	end
-
-	local currentInput = startInput
-	local currentScore = self:predict(currentInput)[1]  -- Assuming single output for simplicity
-	local bestInput = currentInput
-	local bestScore = currentScore
-
-	for i = 1, iterations do
-		local tweakMagnitude = temp / 10  -- Adaptive tweaking based on temperature
-		local newInput = tweakInput(currentInput, tweakMagnitude)
-		local newScore = self:predict(newInput)[1]  -- Assuming single output for simplicity
-
-		local delta = newScore - currentScore
-
-		if delta > 0 or math.random() < math.exp(-delta / temp) then
-			currentInput = newInput
-			currentScore = newScore
-
-			if newScore > bestScore then
-				bestInput = newInput
-				bestScore = newScore
+			-- Calculate error (simplified as difference in magnitudes)
+			local errors = {}
+			for i = 1, #predictedOutputs do
+				errors[i] = targetOutputs[i] - predictedOutputs[i]  -- Assuming targetOutputs are real numbers
+				totalError = totalError + errors[i]^2
 			end
+
+			-- Backward pass (update weights and biases based on errors)
+			self:backwardPass(inputs, hiddenActivations, predictedOutputs, errors)
 		end
-
-		temp = temp * coolingRate
+		print("Epoch:", epoch, "Total Error:", totalError)
 	end
-
-	return bestInput
 end
 
--- Data Management Module
-local DataModule = {}
-DataModule.__index = DataModule
-
-function DataModule.new()
-	local self = setmetatable({}, DataModule)
-	self.trainingData = {}
-	return self
-end
-
-function DataModule:addData(inputs, output)
-	table.insert(self.trainingData, {inputs = inputs, output = output})
-end
-
---Export Neural Network
-
-return {LinearNeuralNetwork = LinearNeuralNetwork, QuantumNeuralNetwork = QuantumNeuralNetwork}
+return {QuantumNeuralNetwork=QuantumNeuralNetwork}
